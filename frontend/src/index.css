@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-textPrimary font-inter antialiased;
+  }
+}
+
+@layer components {
+  .card-glass {
+    @apply bg-surface/90 backdrop-blur-md rounded-lg border border-white/50 shadow-sm transition-all duration-300;
+  }
+  
+  .card-hover {
+    @apply hover:shadow-md hover:border-primary/20 hover:-translate-y-1;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-2 bg-surface border border-border rounded-md text-textPrimary placeholder-textSecondary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all;
+  }
+  
+  .btn-primary {
+    @apply px-4 py-2 bg-primary text-white font-medium rounded-md hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95 flex items-center justify-center gap-2;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-secondary text-white font-medium rounded-md hover:bg-secondary/90 hover:shadow-lg hover:shadow-secondary/20 transition-all active:scale-95 flex items-center justify-center gap-2;
+  }
+
+  .btn-outline {
+    @apply px-4 py-2 border border-border bg-transparent text-textPrimary font-medium rounded-md hover:bg-surface-container transition-all active:scale-95 flex items-center justify-center gap-2;
+  }
+}
