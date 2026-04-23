@@ -6,37 +6,58 @@ const { setMongoAvailable, isMongoAvailable } = require('./config/memStore');
 
 const app = express();
 
-// ── MongoDB Connection with retry ─────────────────────────────────────────────
-const connectWithRetry = (attempt = 1) => {
+// ── Serverless-safe MongoDB connection caching ────────────────────────────────
+// Vercel serverless functions reuse warm instances — cache the connection
+// to avoid creating a new one on every request.
+let isConnecting = false;
+
+const connectWithRetry = async (attempt = 1) => {
+  // If already connected, reuse the connection
+  if (mongoose.connection.readyState === 1) {
+    setMongoAvailable(true);
+    return;
+  }
+
+  // If a connection is in progress, wait for it
+  if (mongoose.connection.readyState === 2) {
+    return;
+  }
+
   const uri = process.env.MONGO_URI;
   if (!uri) {
-    console.error('❌ MONGO_URI is not defined in .env file!');
+    console.error('❌ MONGO_URI is not defined!');
     setMongoAvailable(false);
     return;
   }
 
-  console.log(`🔄 Attempting MongoDB connection (attempt ${attempt})...`);
+  if (isConnecting) return;
+  isConnecting = true;
 
-  mongoose.connect(uri, {
-    serverSelectionTimeoutMS: 30000,  // 30 seconds — Atlas needs time on cold start
-    connectTimeoutMS: 30000,
-    socketTimeoutMS: 45000,
-  })
-    .then(() => {
-      console.log(`✅ MongoDB Connected: ${mongoose.connection.host}`);
-      setMongoAvailable(true);
-    })
-    .catch((err) => {
-      // Print the REAL error so you know what's wrong
-      console.error(`❌ MongoDB Connection Failed (attempt ${attempt}): ${err.message}`);
-      if (attempt < 3) {
-        console.log(`⏳ Retrying in 5 seconds...`);
-        setTimeout(() => connectWithRetry(attempt + 1), 5000);
-      } else {
-        console.log('⚠️  MongoDB unavailable — using in-memory store');
-        setMongoAvailable(false);
-      }
+  console.log(`🔄 Connecting to MongoDB (attempt ${attempt})...`);
+
+  try {
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 30000,
+      maxPoolSize: 10,
+      bufferCommands: false,
     });
+    console.log(`✅ MongoDB Connected: ${mongoose.connection.host}`);
+    setMongoAvailable(true);
+  } catch (err) {
+    console.error(`❌ MongoDB Failed (attempt ${attempt}): ${err.message}`);
+    if (attempt < 3) {
+      isConnecting = false;
+      await new Promise(r => setTimeout(r, 3000));
+      return connectWithRetry(attempt + 1);
+    } else {
+      console.log('⚠️  Using in-memory fallback store');
+      setMongoAvailable(false);
+    }
+  } finally {
+    isConnecting = false;
+  }
 };
 
 connectWithRetry();
